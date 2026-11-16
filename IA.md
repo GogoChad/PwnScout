@@ -1,0 +1,32 @@
+# Journal d'utilisation de l'IA
+
+Ce journal est commencé le 16/11/2026. Il décrit les usages réellement effectués dans cette conversation. Il ne prétend pas reconstituer un historique antérieur.
+
+## 16/11/2026 · ChatGPT (GPT-6) · cadrage et génération d'un premier squelette
+
+**Demande :** partir du sujet PwnScout (outil CLI/TUI Python d'analyse statique ELF) et produire une base de projet Linux comprenant une interface Textual, des contrôles de protections, l'inventaire des symboles/relocations, un repérage heuristique de fonctions sensibles, un aperçu Capstone, une intégration facultative de ROPgadget, des exports, des tests et une documentation.
+
+**Fourni par l'IA :** un premier squelette multi-fichiers comprenant `main.py`, les modules de `pwnscout/`, les tests, `README.md`, les dépendances et un exemple C volontairement vulnérable.
+
+**Gardé provisoirement :**
+- La séparation en modules (analyseur, protections, symboles, désassemblage, gadgets, rapport et interface), car elle facilite les tests et l'explication.
+- L'approche d'analyse statique sans exécution du binaire cible.
+- L'idée d'un échantillon local pour illustrer les détections.
+
+**À vérifier et corriger par l'étudiant avant rendu :**
+- Installer les dépendances sur la machine cible et exécuter réellement l'application TUI.
+- Compiler le programme de démonstration avec le compilateur disponible.
+- Vérifier les résultats de NX, PIE, RELRO, Canary et FORTIFY avec `readelf`/`checksec` sur plusieurs binaires.
+- Vérifier la collecte des relocations et la présentation PLT/GOT selon l'architecture et le linker.
+- Tester les architectures prises en charge et les cas non pris en charge.
+- Exécuter `pytest -v`, compléter les tests d'intégration et consigner les résultats réellement observés.
+- Vérifier les raccourcis Textual et améliorer la navigation si nécessaire.
+- Ne pas présenter le repérage d'importations sensibles comme une preuve de vulnérabilité : il s'agit d'heuristiques.
+
+**Rejeté :**
+- Toute affirmation selon laquelle le projet serait déjà intégralement validé sur Kali/Ubuntu/Arch ou que tous les tests auraient été exécutés, faute d'exécution et de vérification sur l'environnement de rendu.
+- Toute idée de fabriquer des commits antidatés ou de reconstituer un historique hebdomadaire.
+
+**Décision :** cette base est un point de départ assisté par IA, pas une preuve de travail personnel achevé. Les modifications, validations et choix techniques ultérieurs doivent être faits et expliqués par l'étudiant.
+
+**Commit :** à renseigner après le véritable commit de cette entrée et des fichiers concernés. Ne pas inventer de hash.

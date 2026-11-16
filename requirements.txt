@@ -1,0 +1,5 @@
+textual>=0.70,<2.0
+rich>=13.7
+pyelftools>=0.31
+capstone>=5.0
+pytest>=8.0
