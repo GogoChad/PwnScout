@@ -5,6 +5,7 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Header, Footer, Static, DataTable, TabbedContent, TabPane, Input
 from .reporter import export_json, export_txt, export_html
 from .functions import disassemble_function
+from .hexview import read_hex_page
 
 
 class PwnScoutApp(App):
@@ -41,6 +42,11 @@ class PwnScoutApp(App):
     #function_table { width: 40%; height: 1fr; }
     #function_preview { width: 60%; height: 1fr; }
     #selected_function { height: 2; color: #d2beff; }
+    #hex_controls { height: 3; }
+    #hex_offset { width: 32; }
+    #hex_info { width: 1fr; padding: 1 2; color: #bba9df; }
+    #hex_table { height: 1fr; }
+    #entropy_table { height: 1fr; }
     #dep_table { height: 9; }
     #segment_table { height: 12; }
     #import_table { height: 45%; }
@@ -61,6 +67,7 @@ class PwnScoutApp(App):
         self.selected_function = None
         self.function_by_row = {}
         self.preview = report['disassembly']
+        self.hex_offset = 0
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -102,6 +109,15 @@ class PwnScoutApp(App):
                 yield DataTable(id='segment_table')
                 yield Static('ELF sections', classes='section')
                 yield DataTable(id='section_table')
+            with TabPane('Hex Viewer', id='hex'):
+                yield Static('File offsets (not virtual addresses) · Enter a decimal or 0x hexadecimal offset', classes='hint')
+                with Horizontal(id='hex_controls'):
+                    yield Input(value='0x0', placeholder='Byte offset, e.g. 0x40', id='hex_offset')
+                    yield Static('', id='hex_info')
+                yield DataTable(id='hex_table')
+            with TabPane('Entropy', id='entropy'):
+                yield Static('Shannon entropy (0–8 bits/byte) · high values are not proof of packing or malware', classes='hint')
+                yield DataTable(id='entropy_table')
             with TabPane('Symbols / PLT-GOT', id='symbols'):
                 yield Static('Imported symbols', classes='section')
                 yield DataTable(id='import_table')
@@ -133,6 +149,8 @@ class PwnScoutApp(App):
             'function_table': ('Address', 'Function', 'Size'),
             'function_preview': ('Address', 'Bytes', 'Instruction'),
             'dep_table': ('Dependency / loader path',),
+            'hex_table': ('File offset', 'Hex bytes', 'ASCII'),
+            'entropy_table': ('Section', 'Bits/byte', 'Sampled', 'Total bytes', 'Status'),
             'segment_table': ('Type', 'Address', 'File bytes', 'Memory bytes', 'Perms'),
             'section_table': ('Name', 'Type', 'Address', 'Size', 'Flags'),
             'import_table': ('Imported symbol',),
@@ -156,6 +174,7 @@ class PwnScoutApp(App):
                 f"[b]Left[/b] {c['left']['name']}  /  [b]Right[/b] {c['right']['name']}\n"
                 f"Changed protections: {c['changed_protections']} · {c['note']}")
         self.populate_tables()
+        self.load_hex_page()
 
     def _matches(self, *parts):
         return not self.query_text or self.query_text in ' '.join(map(str, parts)).casefold()
@@ -195,6 +214,9 @@ class PwnScoutApp(App):
         self._fill('function_preview', [(v['address'], v['bytes'], v['instruction']) for v in self.preview])
         detail = r['details']
         deps = detail['dependencies'] + [f'RPATH: {x}' for x in detail['rpath']] + [f'RUNPATH: {x}' for x in detail['runpath']]
+        self._fill('entropy_table', [(e['name'], '—' if e['entropy'] is None else f"{e['entropy']:.3f}",
+                                      e['sampled_bytes'], e['section_bytes'], e['status'])
+                                     for e in r.get('entropy', [])])
         self._fill('dep_table', [(d,) for d in deps])
         self._fill('segment_table', [(v['type'], v['vaddr'], v['filesz'], v['memsz'], v['permissions']) for v in detail['segments']])
         self._fill('section_table', [(v['name'], v['type'], v['address'], v['size'], v['flags']) for v in detail['sections']])
@@ -203,10 +225,35 @@ class PwnScoutApp(App):
         self._fill('disasm_table', [(v['address'], v['bytes'], v['instruction']) for v in r['disassembly']])
         self._fill('gadget_table', [(x,) for x in r['gadgets']['items']])
 
+    def load_hex_page(self):
+        try:
+            page = read_hex_page(self.report['metadata']['file'], self.hex_offset)
+        except (OSError, ValueError) as exc:
+            self.notify(f'Hex read failed: {exc}', severity='error')
+            return
+        self._fill('hex_table', [(row['offset'], row['hex'], row['ascii']) for row in page['rows']])
+        self.query_one('#hex_info', Static).update(
+            f"{page['file_size']} bytes · page 0x{self.hex_offset:X} · next 0x{page['next_offset']:X}")
+
+    def on_input_submitted(self, event: Input.Submitted):
+        if event.input.id != 'hex_offset':
+            return
+        try:
+            raw = event.value.strip()
+            value = int(raw, 16 if raw.lower().startswith('0x') else 10)
+            if value < 0:
+                raise ValueError('negative offset')
+        except ValueError:
+            self.notify('Enter a non-negative decimal or 0x offset', severity='warning')
+            return
+        self.hex_offset = value
+        self.load_hex_page()
+
     def on_input_changed(self, event: Input.Changed):
         if event.input.id == 'filter':
             self.query_text = event.value.strip().casefold()
             self.populate_tables()
+            self.load_hex_page()
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected):
         if event.data_table.id == 'guide_table':
