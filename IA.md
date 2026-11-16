@@ -29,7 +29,7 @@ Ce journal est commencé le 16/11/2026. Il décrit les usages réellement effect
 
 **Décision :** cette base est un point de départ assisté par IA, pas une preuve de travail personnel achevé. Les modifications, validations et choix techniques ultérieurs doivent être faits et expliqués par l'étudiant.
 
-**Commit :** à renseigner après le véritable commit de cette entrée et des fichiers concernés. Ne pas inventer de hash.
+**Traçabilité Git :** le socle V1 a été importé ultérieurement dans un commit daté du 16/11/2026 ; voir `VERSION_HISTORY.md`.
 
 ## Évolution V2 — assistance IA (16/11/2026)
 
@@ -65,3 +65,9 @@ Tests pytest exécutés localement après les deux premiers correctifs : **17 r�
 2 ignorés** (dépendances `pyelftools`/`capstone` non disponibles dans cet environnement).
 Le comportement interactif Textual et la comparaison ELF de bout en bout restent
 à vérifier sur la machine de l’étudiant.
+
+## Finalisation documentaire — 16/11/2026
+
+**Intervention IA :** retrait d’un plan de travail personnel du dépôt destiné au rendu, harmonisation du `README.md` avec la V3, réécriture du rapport technique pour décrire les fonctionnalités réellement présentes et clarification des limitations. Les changements sont enregistrés dans des commits datés du jour.
+
+**Conservé :** provenance des versions dans `VERSION_HISTORY.md`, description de l’assistance dans ce journal et distinction entre tests automatisés et vérifications manuelles encore nécessaires. Aucun commit existant n’a été réécrit ou antidaté.
