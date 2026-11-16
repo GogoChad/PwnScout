@@ -158,3 +158,29 @@ For a professional audit, validate results with independent tools such as `reade
 ## License
 
 Educational project. Add a license of your choice before public redistribution.
+
+## V2 additions (November 2026)
+
+- Dark violet compact Textual dashboard with a global case-insensitive filter. Press `/` to focus search; **Tab** or click to switch tabs.
+- Symbol-based function explorer: select a function row and press **Enter** (or click). Preview is limited to 180 instructions / 4 KiB. Stripped binaries might expose no named functions. ARM Thumb and some ABI-specific instruction modes are not inferred.
+- ELF sections (address/size/flags), program segments (R/W/X), DT_NEEDED libraries, RPATH and RUNPATH.
+- Security observations: NX/PIE/RELRO, canary heuristic, embedded library paths and writable+executable PT_LOAD segments. Findings are **heuristic indicators**, not proof of exploitation.
+- SHA-256 and file size in metadata.
+- Escaped offline HTML report using `--html`; HTML includes observations, imports, dependencies, sections, segments and known function symbols.
+- All original tabs and JSON/TXT export are retained. In the TUI press `j` for JSON, `t` for TXT, `h` for HTML; reports are saved under `reports/`.
+
+### V2 commands
+
+```bash
+python main.py samples/vulnerable --no-tui
+python main.py samples/vulnerable --html reports/vulnerable.html --json reports/vulnerable.json --txt reports/vulnerable.txt
+python -m pytest -v
+```
+
+In **Fish Shell**, activate with `source .venv/bin/activate.fish` instead of `activate`.
+
+To inspect useful named functions, compile with debugging symbols (`gcc -g -O0 ...`). Stripped binaries can have no `.symtab` and thus significantly fewer functions.
+
+### Validation limitations
+
+Check results against `readelf -W -h -S -l -d samples/vulnerable`, `nm -an samples/vulnerable`, and `objdump -d samples/vulnerable`. The V2 code is intended for local testing, including TUI interaction and imports/exports on the user's distribution.

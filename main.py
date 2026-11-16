@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pwnscout.analyzer import BinaryAnalyzer
 from pwnscout.interface import PwnScoutApp
-from pwnscout.reporter import export_json, export_txt
+from pwnscout.reporter import export_json, export_txt, export_html
 
 
 def main():
@@ -17,6 +17,7 @@ def main():
     parser.add_argument("binary", help="Path to the ELF binary to inspect")
     parser.add_argument("--json", dest="json_out", help="Write a JSON report")
     parser.add_argument("--txt", dest="txt_out", help="Write a text report")
+    parser.add_argument("--html", dest="html_out", help="Write a standalone HTML report")
     parser.add_argument("--no-tui", action="store_true",
                         help="Print a concise report without launching the TUI")
     args = parser.parse_args()
@@ -37,6 +38,10 @@ def main():
     if args.txt_out:
         export_txt(report, args.txt_out)
         print(f"[+] Text report written to {args.txt_out}")
+
+    if args.html_out:
+        export_html(report, args.html_out)
+        print(f"[+] HTML report written to {args.html_out}")
 
     if args.no_tui:
         from rich.console import Console

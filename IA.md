@@ -30,3 +30,11 @@ Ce journal est commencé le 16/11/2026. Il décrit les usages réellement effect
 **Décision :** cette base est un point de départ assisté par IA, pas une preuve de travail personnel achevé. Les modifications, validations et choix techniques ultérieurs doivent être faits et expliqués par l'étudiant.
 
 **Commit :** à renseigner après le véritable commit de cette entrée et des fichiers concernés. Ne pas inventer de hash.
+
+## Évolution V2 — assistance IA (16/11/2026)
+
+**Intervention dans cet échange :** proposition et génération d'une refonte de la TUI violet/sombre, modules d'inspection des sections et segments ELF, détection de chemins dynamiques et segments RWX, exploration des fonctions à partir des symboles, export HTML et tests associés.
+
+**Vérifications effectuées dans l'environnement de génération :** contrôle de syntaxe Python (`compileall`), tests unitaires ne nécessitant pas les bibliothèques d'analyse (7 réussis), compilation d'un binaire C de démonstration. Les bibliothèques `textual`, `pyelftools` et `capstone` n'ont pas pu être installées dans cet environnement faute de réseau ; les interactions de la TUI et le test ELF de bout en bout restent donc **à valider sur la machine cible**.
+
+**Travail restant à effectuer et documenter par le porteur du projet :** installer les dépendances, lancer les tests complets, comparer les observations avec `readelf`/`objdump`, examiner les fonctionnalités et ajuster le code selon les résultats. Cette entrée décrit l'intervention IA de cette session, et ne présume pas de la chronologie antérieure du projet.
