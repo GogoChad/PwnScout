@@ -10,3 +10,4 @@ reports/
 
 # Personal planning notes (not part of the submission)
 DEVELOPMENT_STAGES.md
+.venv/
