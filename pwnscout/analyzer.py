@@ -6,6 +6,7 @@ from .checksec import inspect_protections
 from .disassembler import disassemble_entry
 from .elfdetails import inspect_elf_details, inspect_security_details
 from .functions import discover_functions
+from .hardening import explain_protections, build_hardening_suggestion
 from .gadgets import find_gadgets
 from .symbols import inspect_symbols
 from .vulnerabilities import find_risky_imports
@@ -41,12 +42,15 @@ class BinaryAnalyzer:
             functions = discover_functions(elf)
             disassembly = disassemble_entry(elf, max_instructions=100)
             security_details = inspect_security_details(elf, details, protections)
+            protection_guide = explain_protections(protections)
         vulnerabilities = find_risky_imports(symbols['imports'])
         return {
             'metadata': metadata, 'protections': protections, 'symbols': symbols,
             'vulnerabilities': vulnerabilities, 'gadgets': find_gadgets(self.path),
             'disassembly': disassembly, 'details': details, 'functions': functions,
             'security_findings': security_details,
+            'protection_guide': protection_guide,
+            'hardening_flags': build_hardening_suggestion(protection_guide),
             'summary': {'functions': len(functions), 'dependencies': len(details['dependencies']),
                         'security_findings': len(security_details), 'risky_imports': len(vulnerabilities)},
         }

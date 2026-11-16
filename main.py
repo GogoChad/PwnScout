@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from pwnscout.analyzer import BinaryAnalyzer
+from pwnscout.comparison import compare_reports
 from pwnscout.interface import PwnScoutApp
 from pwnscout.reporter import export_json, export_txt, export_html
 
@@ -15,6 +16,8 @@ def main():
         description="Interactive static reconnaissance for ELF binaries."
     )
     parser.add_argument("binary", help="Path to the ELF binary to inspect")
+    parser.add_argument("--compare", metavar="OTHER_ELF",
+                        help="Compare protections, imports and dependencies against another ELF")
     parser.add_argument("--json", dest="json_out", help="Write a JSON report")
     parser.add_argument("--txt", dest="txt_out", help="Write a text report")
     parser.add_argument("--html", dest="html_out", help="Write a standalone HTML report")
@@ -28,6 +31,10 @@ def main():
 
     try:
         report = BinaryAnalyzer(path).analyze()
+        if args.compare:
+            other_path = Path(args.compare).expanduser()
+            other = BinaryAnalyzer(other_path).analyze()
+            report['comparison'] = compare_reports(report, other)
     except Exception as exc:
         print(f"[!] Analysis failed: {exc}", file=sys.stderr)
         return 2
@@ -56,6 +63,16 @@ def main():
         console.print(f"Architecture: {report['metadata'].get('architecture', 'unknown')}")
         console.print(f"Imported symbols: {len(report['symbols']['imports'])}")
         console.print(f"Potentially risky imports: {len(report['vulnerabilities'])}")
+        if 'comparison' in report:
+            c = report['comparison']
+            diff_table = Table(title=f"Comparison with {c['right']['name']}")
+            diff_table.add_column('Protection')
+            diff_table.add_column('Left')
+            diff_table.add_column('Right')
+            for p in c['protections']:
+                diff_table.add_row(p['name'], p['left'], p['right'])
+            console.print(diff_table)
+            console.print(c['note'])
         return 0
 
     PwnScoutApp(report).run()

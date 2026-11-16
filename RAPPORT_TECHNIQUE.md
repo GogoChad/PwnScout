@@ -108,3 +108,7 @@ Ne renseigner cette section qu'après exécution réelle.
 ## 9. Utilisation de l'IA
 
 Un premier squelette multi-fichiers a été généré avec assistance IA le 16/11/2026. Le détail des demandes, éléments gardés, éléments à vérifier et décisions est consigné dans `IA.md`. Cette documentation ne remplace ni les validations pratiques ni la compréhension du code par l'étudiant.
+
+## Extension V3 — comparaison de deux ELF et recommandations
+
+La V3 produit deux analyses statiques indépendantes et compare les champs NX, PIE, RELRO, Canary, FORTIFY ainsi que les noms d'imports, les imports marqués à risque et les dépendances dynamiques. Les différences sont descriptives ; elles ne constituent ni un score de sûreté ni une preuve de vulnérabilité. Le guide des protections expose le principe de chaque atténuation, ses limites, une commande de vérification et des options GCC/linker indicatives. Le rapport HTML et les exports texte et JSON incluent ces informations. L'affichage TUI et la comparaison sont soumis à validation d'intégration sur la machine de destination.

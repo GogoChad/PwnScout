@@ -30,6 +30,11 @@ class PwnScoutApp(App):
     DataTable > .datatable--header { background: #261d39; color: #dbccff; }
     DataTable:focus { border: solid #9573dc; }
     #security_view, #symbols_view, #sections_view, #overview_view, #explorer_view { height: 1fr; }
+    #guide_table { height: 12; }
+    #guide_detail { height: 1fr; background: #1c172d; border: solid #392a5c; padding: 1 2; }
+    #compare_table { height: 10; }
+    #compare_diff_table { height: 1fr; }
+    #comparison_meta { height: 3; color: #b9add1; padding: 0 1; }
     #protection_table { height: 9; }
     #security_table { height: 1fr; }
     #risk_table { height: 8; }
@@ -72,6 +77,18 @@ class PwnScoutApp(App):
             with TabPane('Security', id='security'):
                 yield Static('Security observations · not proof of exploitability', classes='hint')
                 yield DataTable(id='security_table')
+            with TabPane('Hardening', id='hardening'):
+                yield Static('Mitigations explained · status checks are best effort', classes='hint')
+                yield DataTable(id='guide_table')
+                yield Static('Choose a protection row for explanation and compiler options', classes='section')
+                yield Static('', id='guide_detail')
+            if self.report.get('comparison'):
+                with TabPane('Compare ELF', id='compare'):
+                    yield Static('', id='comparison_meta')
+                    yield Static('Protection changes (left vs right)', classes='section')
+                    yield DataTable(id='compare_table')
+                    yield Static('Added / removed indicators (not exploitability)', classes='section')
+                    yield DataTable(id='compare_diff_table')
             with TabPane('Functions', id='functions'):
                 yield Static('Select a named function (Enter / click). Stripped binaries may lack function symbols.', classes='hint')
                 yield Static('Entry-point preview until a function is selected', id='selected_function')
@@ -110,6 +127,7 @@ class PwnScoutApp(App):
             f"[b]FUNCTIONS[/b]  {s['functions']}      [b]LIBRARIES[/b]  {s['dependencies']}")
         columns = {
             'protection_table': ('Protection', 'Result'),
+            'guide_table': ('Protection', 'Detected status', 'Recommendation'),
             'risk_table': ('Severity', 'Function', 'Reason', 'Suggestion'),
             'security_table': ('Severity', 'Finding', 'Explanation'),
             'function_table': ('Address', 'Function', 'Size'),
@@ -122,12 +140,21 @@ class PwnScoutApp(App):
             'disasm_table': ('Address', 'Bytes', 'Instruction'),
             'gadget_table': ('Gadget',),
         }
+        if self.report.get('comparison'):
+            columns['compare_table'] = ('Protection', 'Left', 'Right', 'Changed')
+            columns['compare_diff_table'] = ('Category', 'Side', 'Value')
         for ident, labels in columns.items():
             table = self.query_one('#' + ident, DataTable)
             table.add_columns(*labels)
             table.cursor_type = 'row'
             table.zebra_stripes = True
         self.query_one('#rop_status', Static).update(self.report['gadgets']['message'])
+        self.query_one('#guide_detail', Static).update('Select a row to read its explanation and suggested flags. These are not guaranteed fixes.')
+        if self.report.get('comparison'):
+            c = self.report['comparison']
+            self.query_one('#comparison_meta', Static).update(
+                f"[b]Left[/b] {c['left']['name']}  /  [b]Right[/b] {c['right']['name']}\n"
+                f"Changed protections: {c['changed_protections']} · {c['note']}")
         self.populate_tables()
 
     def _matches(self, *parts):
@@ -146,6 +173,15 @@ class PwnScoutApp(App):
     def populate_tables(self):
         r = self.report
         self._fill('protection_table', [(k, v) for k, v in r['protections'].items()])
+        self._fill('guide_table', [(g['name'], g['status'], g['recommendation']) for g in r.get('protection_guide', [])])
+        if r.get('comparison'):
+            c = r['comparison']
+            self._fill('compare_table', [(p['name'], p['left'], p['right'], 'YES' if p['changed'] else '—') for p in c['protections']])
+            diff_rows = []
+            for category in ('imports', 'risky_imports', 'dependencies'):
+                for key, label in (('only_left', 'Left only'), ('only_right', 'Right only')):
+                    diff_rows.extend((category, label, item) for item in c[category][key])
+            self._fill('compare_diff_table', diff_rows)
         self._fill('risk_table', [(v['severity'], v['function'], v['reason'], v['suggestion']) for v in r['vulnerabilities']])
         self._fill('security_table', [(v['severity'], v['finding'], v['explanation']) for v in r['security_findings']])
         table = self.query_one('#function_table', DataTable)
@@ -173,6 +209,22 @@ class PwnScoutApp(App):
             self.populate_tables()
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected):
+        if event.data_table.id == 'guide_table':
+            try:
+                row = event.data_table.get_row(event.row_key)
+                name = str(row[0])
+                guide = next(g for g in self.report.get('protection_guide', []) if g['name'] == name)
+            except (IndexError, KeyError, StopIteration):
+                return
+            from rich.markup import escape
+            self.query_one('#guide_detail', Static).update(
+                '[b]' + escape(guide['name']) + '[/b] · ' + escape(guide['status']) + '\n' +
+                escape(guide['what']) + '\n' +
+                '[b]Limits:[/b] ' + escape(guide['limits']) + '\n' +
+                '[b]GCC/linker:[/b] ' + escape(guide['flags']) + '\n' +
+                '[b]Verify:[/b] ' + escape(guide['verify']) + '\n' +
+                '[b]Action:[/b] ' + escape(guide['advice']))
+            return
         if event.data_table.id != 'function_table':
             return
         function = self.function_by_row.get(event.row_key.value)

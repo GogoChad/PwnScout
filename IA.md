@@ -38,3 +38,15 @@ Ce journal est commencé le 16/11/2026. Il décrit les usages réellement effect
 **Vérifications effectuées dans l'environnement de génération :** contrôle de syntaxe Python (`compileall`), tests unitaires ne nécessitant pas les bibliothèques d'analyse (7 réussis), compilation d'un binaire C de démonstration. Les bibliothèques `textual`, `pyelftools` et `capstone` n'ont pas pu être installées dans cet environnement faute de réseau ; les interactions de la TUI et le test ELF de bout en bout restent donc **à valider sur la machine cible**.
 
 **Travail restant à effectuer et documenter par le porteur du projet :** installer les dépendances, lancer les tests complets, comparer les observations avec `readelf`/`objdump`, examiner les fonctionnalités et ajuster le code selon les résultats. Cette entrée décrit l'intervention IA de cette session, et ne présume pas de la chronologie antérieure du projet.
+
+## Évolution V3 — assistance IA (16/11/2026)
+
+**Demande dans cet échange :** conserver la V2 et ajouter une comparaison de deux ELF, des explications des mécanismes de protection, et des recommandations de durcissement GCC dans l'interface et les rapports.
+
+**Généré avec l'aide de l'IA :** `pwnscout/comparison.py`, `pwnscout/hardening.py`, adaptation de `main.py`, `analyzer.py`, `interface.py`, `reporter.py`, tests V3, documentation et cas de compilation comparative.
+
+**Vérifié dans l'environnement de génération :** syntaxe Python et tests unitaires. Le test ELF de bout en bout dépend de `pyelftools` et `capstone`, absents de cet environnement, et n'a donc pas été exécuté ici. Le comportement interactif Textual sur CachyOS reste à vérifier par l'étudiant.
+
+**Limites retenues :** comparaison de métadonnées et d'indicateurs seulement ; conseils GCC présentés comme pistes de durcissement, pas comme correctifs automatiques. Aucune revendication d'une exploitation détectée ou empêchée.
+
+**À faire par l'étudiant :** exécuter les tests d'intégration et la TUI sur sa machine, confronter les résultats à `readelf` et `checksec`, comprendre et vérifier chaque nouvel onglet, conserver ses véritables commits Git et documenter les changements effectivement réalisés. Cette entrée ne prétend pas reconstituer de travaux passés.

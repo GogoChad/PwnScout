@@ -33,3 +33,32 @@ def test_real_elf_metadata_functions_and_html(tmp_path, monkeypatch):
     assert rows and rows[0]['address'] == function['address']
     export_html(report, tmp_path / 'report.html')
     assert 'Functions (symbol-derived)' in (tmp_path / 'report.html').read_text()
+
+
+def test_real_elf_compare_different_link_modes(tmp_path, monkeypatch):
+    """Both binaries are inspected statically; neither executable is launched."""
+    pytest.importorskip('elftools')
+    pytest.importorskip('capstone')
+    if not shutil.which('gcc'):
+        pytest.skip('gcc not installed')
+    source = Path(__file__).resolve().parents[1] / 'samples' / 'vulnerable.c'
+    weak = tmp_path / 'weak'
+    strong = tmp_path / 'strong'
+    flags = ['-g', '-O0', '-Wno-implicit-function-declaration']
+    subprocess.run(['gcc', *flags, '-fno-stack-protector', '-no-pie', '-Wl,-z,norelro',
+                    '-o', str(weak), str(source)], check=True, capture_output=True, timeout=30)
+    subprocess.run(['gcc', *flags, '-fstack-protector-strong', '-fPIE', '-pie',
+                    '-Wl,-z,relro,-z,now', '-o', str(strong), str(source)],
+                   check=True, capture_output=True, timeout=30)
+    monkeypatch.setattr('pwnscout.analyzer.find_gadgets',
+                        lambda p: {'available': False, 'items': [], 'message': 'skipped'})
+    from pwnscout.analyzer import BinaryAnalyzer
+    from pwnscout.comparison import compare_reports
+    first = BinaryAnalyzer(weak).analyze()
+    second = BinaryAnalyzer(strong).analyze()
+    diff = compare_reports(first, second)
+    pie = next(x for x in diff['protections'] if x['name'] == 'PIE')
+    assert (pie['left'], pie['right']) == ('Disabled', 'Enabled')
+    relro = next(x for x in diff['protections'] if x['name'] == 'RELRO')
+    assert (relro['left'], relro['right']) == ('No RELRO', 'Full')
+    assert second['protection_guide']

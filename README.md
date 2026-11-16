@@ -184,3 +184,56 @@ To inspect useful named functions, compile with debugging symbols (`gcc -g -O0 .
 ### Validation limitations
 
 Check results against `readelf -W -h -S -l -d samples/vulnerable`, `nm -an samples/vulnerable`, and `objdump -d samples/vulnerable`. The V2 code is intended for local testing, including TUI interaction and imports/exports on the user's distribution.
+
+## V3 — ELF comparison and hardening guide (November 2026)
+
+V3 adds a **Compare ELF** tab when a second ELF is supplied with `--compare`, and an always-present **Hardening** tab. The V2 tabs (Overview, Security, Functions, Sections/dependencies, Symbols, Entry disassembly and ROP gadgets), global search (`/`), and JSON/TXT/HTML exports (`j`, `t`, `h`) remain available.
+
+### Usage
+
+From the project root with your virtual environment activated:
+
+```bash
+python main.py samples/vulnerable --compare /path/to/second.elf
+python main.py samples/vulnerable --compare /path/to/second.elf --no-tui
+python main.py samples/vulnerable --compare /path/to/second.elf \
+    --json reports/compare.json --txt reports/compare.txt --html reports/compare.html --no-tui
+```
+
+The **first path is the left side** and the `--compare` path is the **right side**. Comparison covers NX, PIE, RELRO, canary, FORTIFY, imported symbols, flagged imports and DT_NEEDED dependencies. It lists differences in a stable order and is also included in exported reports. It does not execute either binary.
+
+In **Hardening**, select a row with Enter/click to view a mitigation explanation, limits, a manual verification command, and sample compiler/linker flags. A missing `__stack_chk_fail` or `_chk` symbol is an *indicator*, not proof that a protection was globally disabled. The flags are educational suggestions; they are not a secure build recipe or a guarantee that a vulnerability is fixed.
+
+### Reproducible before/after example
+
+For Linux/GCC, compile the same intentionally unsafe sample in two ways (do not execute the sample):
+
+```bash
+gcc -g -O0 -fno-stack-protector -no-pie -Wl,-z,norelro \
+  -Wno-implicit-function-declaration -o samples/weak samples/vulnerable.c
+
+gcc -g -O0 -fstack-protector-strong -fPIE -pie -Wl,-z,relro,-z,now \
+  -Wno-implicit-function-declaration -o samples/hardened samples/vulnerable.c
+
+python main.py samples/weak --compare samples/hardened
+```
+
+This demonstrates typical PIE and RELRO differences on Linux/GCC; outcomes may vary with distro defaults, linker flags and compiler versions. Hardening does **not** repair the unsafe `gets` use.
+
+### CachyOS / Fish shell quick test
+
+```fish
+python -m venv .venv
+source .venv/bin/activate.fish
+python -m pip install -r requirements.txt
+python -m pytest -v
+python main.py samples/weak --compare samples/hardened
+```
+
+### Limitations and test policy
+
+- Protection inspection is best-effort: PIE and FORTIFY in particular can require interpretation beyond ELF symbols/headers, and stripped/static binaries can hide symbols. Compare individual evidence with `readelf`, `objdump` and `checksec`.
+- Import differences are names, not a control-flow or exploitability analysis. Two binaries may differ due to build configuration or linkers.
+- Function exploration remains limited to symbol-derived function names, supported architectures and bounded disassembly.
+- `--compare` builds two analysis snapshots; for very large binaries or with external ROPgadget installed, it may take longer.
+- The TUI must be validated interactively on the target platform. A test suite includes pure-unit tests and optional GCC/ELF integration tests; the latter skip when dependencies are unavailable.

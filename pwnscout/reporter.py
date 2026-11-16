@@ -33,6 +33,20 @@ def export_txt(report, destination):
         lines.extend(f"{x['severity']}: {x['finding']} — {x['explanation']}" for x in report['security_findings'])
     if 'details' in report:
         lines += ['', 'DEPENDENCIES', '-' * 32, *report['details']['dependencies']]
+    if 'protection_guide' in report:
+        lines += ['', 'PROTECTIONS EXPLAINED / HARDENING', '-' * 32]
+        for x in report['protection_guide']:
+            lines.extend((f"{x['name']} [{x['status']}]", f"  Purpose: {x['what']}",
+                          f"  Limits: {x['limits']}", f"  Recommendation: {x['recommendation']}",
+                          f"  Compiler/linker options: {x['flags']}", f"  Verify: {x['verify']}", ''))
+    if 'comparison' in report:
+        c = report['comparison']
+        lines += ['', 'ELF COMPARISON', '-' * 32, f"Left: {c['left']['path']}",
+                  f"Right: {c['right']['path']}", c['note']]
+        lines.extend(f"{p['name']}: {p['left']} -> {p['right']}" for p in c['protections'])
+        for category in ('imports', 'risky_imports', 'dependencies'):
+            for side in ('only_left', 'only_right'):
+                lines.append(f"{category} / {side}: {', '.join(c[category][side]) or '(none)'}")
     _write(destination, '\n'.join(lines) + '\n')
 
 
@@ -53,6 +67,23 @@ def export_html(report, destination):
     section('Sections', table(report.get('details', {}).get('sections', []), [('name', 'Name'), ('type', 'Type'), ('address', 'Address'), ('size', 'Size'), ('flags', 'Flags')]))
     section('Segments', table(report.get('details', {}).get('segments', []), [('type', 'Type'), ('vaddr', 'Virtual address'), ('permissions', 'Permissions')]))
     section('Functions (symbol-derived)', table(report.get('functions', []), [('name', 'Name'), ('address', 'Address'), ('size', 'Size')]))
+    if report.get('protection_guide'):
+        section('Mitigation guide and GCC suggestions', table(report['protection_guide'],
+                [('name', 'Protection'), ('status', 'Status'), ('what', 'Purpose'),
+                 ('limits', 'Limitations'), ('flags', 'Suggested options'),
+                 ('recommendation', 'Action'), ('verify', 'Verify')]))
+    if report.get('comparison'):
+        c = report['comparison']
+        section('ELF comparison', '<p>' + esc(c['left']['path']) + ' vs ' + esc(c['right']['path']) +
+                '</p><p>' + esc(c['note']) + '</p>' +
+                table(c['protections'], [('name', 'Protection'), ('left', 'Left'), ('right', 'Right'), ('changed', 'Changed')]))
+        differences = []
+        for category in ('imports', 'risky_imports', 'dependencies'):
+            for side in ('only_left', 'only_right'):
+                differences.extend({'category': category, 'side': side, 'value': name}
+                                   for name in c[category][side])
+        section('Comparison differences', table(differences,
+                [('category', 'Category'), ('side', 'Side'), ('value', 'Only on that side')]))
     section('Metadata', table([{'key': k, 'value': v} for k, v in report['metadata'].items()], [('key', 'Field'), ('value', 'Value')]))
     style = '''body{margin:0;background:#11101b;color:#e8e4f2;font:14px system-ui,sans-serif}main{max-width:1120px;margin:auto;padding:32px}header{background:#211b36;border:1px solid #443365;border-radius:14px;padding:22px}h1{margin:0;color:#dacaff}h2{font-size:17px;color:#c7b4fb}p{color:#a99ebc}section{background:#1a1727;border:1px solid #363049;border-radius:12px;padding:16px;margin:16px 0}.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;text-align:left}th,td{padding:9px 10px;border-bottom:1px solid #343044;vertical-align:top;overflow-wrap:anywhere}th{color:#bca8f3;font-size:12px}td{color:#e0dae8}code{color:#d5c5ff}'''
     m = report['metadata']
