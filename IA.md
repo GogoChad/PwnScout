@@ -50,3 +50,18 @@ Ce journal est commencé le 16/11/2026. Il décrit les usages réellement effect
 **Limites retenues :** comparaison de métadonnées et d'indicateurs seulement ; conseils GCC présentés comme pistes de durcissement, pas comme correctifs automatiques. Aucune revendication d'une exploitation détectée ou empêchée.
 
 **À faire par l'étudiant :** exécuter les tests d'intégration et la TUI sur sa machine, confronter les résultats à `readelf` et `checksec`, comprendre et vérifier chaque nouvel onglet, conserver ses véritables commits Git et documenter les changements effectivement réalisés. Cette entrée ne prétend pas reconstituer de travaux passés.
+
+
+## Maintenance et vérifications supplémentaires — 16/11/2026
+
+L’assistant a ajouté trois commits de travail à la suite des imports V1/V2/V3, sans
+antidater ni réécrire les commits existants. Les modifications réelles concernent :
+
+- La distinction entre exécutable PIE et bibliothèque partagée `ET_DYN` dans la détection de PIE.
+- Les avertissements de comparaison lorsque deux ELF diffèrent par architecture ou type, ou lorsqu’ils ont le même SHA-256.
+- La documentation du découpage technique réel et de ses limites de traçabilité.
+
+Tests pytest exécutés localement après les deux premiers correctifs : **17 réussis,
+2 ignorés** (dépendances `pyelftools`/`capstone` non disponibles dans cet environnement).
+Le comportement interactif Textual et la comparaison ELF de bout en bout restent
+à vérifier sur la machine de l’étudiant.

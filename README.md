@@ -1,4 +1,4 @@
-# PwnScout 1.0
+# PwnScout V3
 
 PwnScout is an interactive, static reconnaissance tool for Linux ELF binaries. It presents security metadata, imported symbols, relocation entries, heuristic risky-import findings, an entry-point disassembly preview, and optional ROP gadget results.
 
@@ -237,3 +237,21 @@ python main.py samples/weak --compare samples/hardened
 - Function exploration remains limited to symbol-derived function names, supported architectures and bounded disassembly.
 - `--compare` builds two analysis snapshots; for very large binaries or with external ROPgadget installed, it may take longer.
 - The TUI must be validated interactively on the target platform. A test suite includes pure-unit tests and optional GCC/ELF integration tests; the latter skip when dependencies are unavailable.
+
+
+## V3 — comparison and hardening guide
+
+Use `--compare` to inspect differences between **two** ELF inputs. Results describe the
+protections and imports observed, not the exploitability of either binary.
+The TUI also includes **Hardening** and **Compare ELF** views.
+
+```sh
+python main.py samples/weak --compare samples/hardened
+python main.py samples/weak --compare samples/hardened --no-tui --html reports/comparison.html
+```
+
+V3 adds explanations and conditional GCC/linker flag suggestions. For the full
+technical stage map and honest Git provenance, read `DEVELOPMENT_STAGES.md` and
+`VERSION_HISTORY.md`. All listed integration commands must be checked on the
+installation machine; the bundled test suite may skip ELF integration tests if
+required third-party modules are absent.
