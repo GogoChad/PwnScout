@@ -1,114 +1,92 @@
 # PwnScout — Rapport technique
 
-**Projet :** outil TUI d'analyse statique de binaires ELF  
-**Version de travail :** 1.0  
-**Date de préparation de cette documentation :** 16/11/2026
+**Objet :** analyse statique de binaires ELF sous Linux  
+**Version :** V3  
+**Date du document :** 16 novembre 2026
 
-## 1. Objectif
+## 1. Présentation
 
-PwnScout vise à centraliser dans un terminal des informations utiles lors d'une première reconnaissance d'un exécutable ELF Linux : métadonnées, protections, symboles importés, relocations, fonctions potentiellement sensibles, aperçu de désassemblage et gadgets ROP facultatifs.
+PwnScout rassemble dans une interface terminal les informations nécessaires à une première inspection de sécurité d’un binaire ELF. Il extrait des métadonnées, vérifie certains mécanismes de protection, inventorie symboles et dépendances, présente des aperçus de désassemblage et compare deux binaires.
 
-L'outil est destiné à l'apprentissage et à l'analyse de binaires que l'utilisateur est autorisé à examiner.
+Le programme **n’exécute pas la cible**. Son périmètre est celui d’un outil de reconnaissance et de formation, non d’un moteur de preuve d’exploitabilité.
 
-## 2. Périmètre et sécurité
+## 2. Architecture
 
-L'analyse est statique : PwnScout lit le fichier et ne lance pas le binaire cible. L'intégration de ROPgadget appelle un outil externe sur le fichier en entrée. Le binaire d'exemple fourni est volontairement vulnérable et doit rester un fichier de laboratoire local.
+Le point d’entrée `main.py` parse la ligne de commande, appelle `BinaryAnalyzer` et transmet le rapport structuré à la TUI ou aux exporteurs.
 
-Les alertes de fonctions dangereuses sont heuristiques. La présence de `strcpy`, `gets` ou `system` dans les imports ne démontre pas à elle seule une vulnérabilité exploitable. Il faut examiner les appels, les données contrôlées par l'utilisateur, les tailles de buffers et le flot d'exécution.
-
-## 3. Architecture
-
-- `main.py` : arguments CLI, orchestration et lancement de l'interface.
-- `pwnscout/analyzer.py` : validation ELF et coordination des modules.
-- `checksec.py` : inférence des protections à partir des segments, tags dynamiques et imports.
-- `symbols.py` : extraction des imports, exports et relocations.
-- `vulnerabilities.py` : règles heuristiques sur les noms de fonctions importées.
-- `disassembler.py` : aperçu des instructions à partir du point d'entrée via Capstone.
-- `gadgets.py` : intégration facultative de ROPgadget avec délai maximal.
-- `interface.py` : tableaux et onglets Textual.
-- `reporter.py` : export JSON et TXT.
-
-## 4. Dépendances
-
-Python 3.10+, Textual, Rich, pyelftools, Capstone et pytest. ROPgadget est facultatif. La compilation de l'échantillon nécessite GCC ou Clang.
-
-## 5. Méthodes d'analyse
-
-### 5.1 Format ELF
-
-Le parseur vérifie la signature ELF puis extrait la classe, l'architecture, l'endianness, le type et l'adresse d'entrée. Les structures sont lues avec pyelftools.
-
-### 5.2 Protections
-
-- **NX :** présence d'un segment GNU_STACK non exécutable.
-- **PIE :** type ELF dynamique (ET_DYN), interprété comme PIE dans le contexte d'un exécutable.
-- **RELRO :** présence de GNU_RELRO ; le mode Full dépend également de l'activation de NOW.
-- **Canary :** recherche de l'import `__stack_chk_fail`.
-- **FORTIFY :** recherche d'importations suffixées `_chk`.
-
-Ces vérifications sont des indicateurs best-effort et peuvent nécessiter une interprétation manuelle, notamment pour les bibliothèques partagées et binaires atypiques.
-
-### 5.3 Fonctions sensibles
-
-Le scanner compare les symboles importés à une liste de fonctions connues pour nécessiter une attention particulière. Il fournit une sévérité indicative, une explication et une piste de remplacement. Il ne réalise pas d'analyse de taint ni de preuve d'exploitabilité.
-
-### 5.4 Symboles et relocations
-
-Les imports et exports sont extraits des tables de symboles. Les entrées de relocation sont affichées avec section, offset, symbole et type. Selon le format, l'architecture et le linker, ces données correspondent aux mécanismes utilisés pour résoudre des références, notamment celles liées à la PLT/GOT. L'affichage n'est pas un désassemblage complet des stubs PLT.
-
-### 5.5 Désassemblage et ROP
-
-Capstone décode un aperçu limité à partir de l'adresse d'entrée dans une section exécutable. ROPgadget est appelé en option ; son absence ne doit pas empêcher les autres analyses.
-
-## 6. Installation et utilisation
-
-Consulter `README.md` pour les commandes adaptées à Debian/Ubuntu/Kali et Arch. Commande principale :
-
-```bash
-python main.py ./samples/vulnerable
-```
-
-Exports :
-
-```bash
-mkdir -p reports
-python main.py ./samples/vulnerable --json reports/report.json --txt reports/report.txt
-```
-
-Tests :
-
-```bash
-python -m pytest -v
-```
-
-## 7. Plan de validation à effectuer et résultats à renseigner
-
-Ne renseigner cette section qu'après exécution réelle.
-
-| Vérification | Résultat observé |
+| Composant | Rôle |
 |---|---|
-| Installation des dépendances | À exécuter |
-| Compilation de l'échantillon | À exécuter |
-| Ouverture de la TUI | À exécuter |
-| Détection de `gets` dans l'échantillon | À exécuter |
-| Comparaison Checksec avec `readelf`/`checksec` | À exécuter |
-| Export JSON et TXT | À exécuter |
-| Tests pytest | À exécuter |
-| Binaire ELF invalide / architecture non prise en charge | À exécuter |
+| `analyzer.py` | Coordination de l’analyse, validation ELF et empreinte SHA-256 |
+| `checksec.py` | Estimation NX, PIE, RELRO, stack canary et FORTIFY |
+| `symbols.py` | Imports, exports et relocations |
+| `vulnerabilities.py` | Heuristiques de fonctions importées sensibles |
+| `elfdetails.py` | Sections, segments, dépendances, chemins dynamiques et segments RWX |
+| `functions.py` / `disassembler.py` | Fonctions identifiables via les symboles et aperçu Capstone |
+| `gadgets.py` | Recherche optionnelle de gadgets via ROPgadget |
+| `comparison.py` | Comparaison de deux analyses ELF |
+| `hardening.py` | Explications des protections et pistes de compilation |
+| `interface.py` | Navigation et recherche dans Textual |
+| `reporter.py` | Exports JSON, TXT et HTML |
 
-## 8. Limites et améliorations possibles
+**Bibliothèques principales :** Python 3.10+, `pyelftools`, `capstone`, `textual`, `rich`, `pytest`. `ROPgadget` est facultatif.
 
-- Ajouter des tests d'intégration sur des binaires de référence compilés avec différentes options.
-- Distinguer précisément les exécutables PIE des bibliothèques partagées.
-- Améliorer l'identification des sections et stubs PLT selon l'architecture.
-- Ajouter une désassemblage par fonction et une navigation par symboles.
-- Ajouter des règles configurables et un niveau de confiance aux alertes.
-- Ajouter une comparaison automatique avec les sorties de `readelf` et `checksec`.
+## 3. Méthodes
 
-## 9. Utilisation de l'IA
+### 3.1 Extraction ELF
 
-Un premier squelette multi-fichiers a été généré avec assistance IA le 16/11/2026. Le détail des demandes, éléments gardés, éléments à vérifier et décisions est consigné dans `IA.md`. Cette documentation ne remplace ni les validations pratiques ni la compréhension du code par l'étudiant.
+L’analyse commence par une vérification de la signature ELF, puis lit les en-têtes, tables de symboles, relocations, sections et segments au moyen de `pyelftools`. Elle calcule une empreinte SHA-256 du fichier analysé. Certaines informations peuvent manquer dans les binaires dépouillés de leurs symboles.
 
-## Extension V3 — comparaison de deux ELF et recommandations
+### 3.2 Indicateurs de protection
 
-La V3 produit deux analyses statiques indépendantes et compare les champs NX, PIE, RELRO, Canary, FORTIFY ainsi que les noms d'imports, les imports marqués à risque et les dépendances dynamiques. Les différences sont descriptives ; elles ne constituent ni un score de sûreté ni une preuve de vulnérabilité. Le guide des protections expose le principe de chaque atténuation, ses limites, une commande de vérification et des options GCC/linker indicatives. Le rapport HTML et les exports texte et JSON incluent ces informations. L'affichage TUI et la comparaison sont soumis à validation d'intégration sur la machine de destination.
+- **NX :** examen des permissions du segment de pile `PT_GNU_STACK`.
+- **PIE :** distinction des exécutables position-independent et des bibliothèques partagées ; le seul type `ET_DYN` ne suffit pas toujours.
+- **RELRO :** inspection de `PT_GNU_RELRO` et des indicateurs de liaison immédiate pour distinguer les configurations usuelles.
+- **Canary :** recherche d’indicateurs comme `__stack_chk_fail`, non exhaustive.
+- **FORTIFY :** détection heuristique de fonctions renforcées (`*_chk`), non exhaustive.
+
+Des observations complémentaires concernent notamment les segments à la fois inscriptibles et exécutables et les chemins `RPATH` / `RUNPATH`.
+
+### 3.3 Fonctions sensibles et désassemblage
+
+Les imports sont comparés à une liste de fonctions justifiant une revue (`gets`, `strcpy`, etc.). Un résultat indique uniquement la présence d’un nom importé, **pas une vulnérabilité avérée**. Capstone permet de lire des instructions proches du point d’entrée ou d’une fonction identifiable par les symboles. Les architectures et modes d’instructions pris en charge sont limités.
+
+La recherche de gadgets délègue à ROPgadget, lorsqu’il est installé. Elle peut être indisponible sans empêcher les autres fonctionnalités.
+
+### 3.4 Comparaison et recommandations
+
+Avec `--compare`, deux fichiers sont analysés séparément. PwnScout affiche les écarts de protections, d’imports et de dépendances. Il signale certaines incompatibilités (type ELF, architecture) et les fichiers identiques selon SHA-256. Une différence n’indique pas automatiquement qu’un fichier est plus sûr que l’autre.
+
+Le guide de durcissement associe aux protections des descriptions, limites, méthodes de vérification et options GCC/linker indicatives. Ces options **ne réparent pas le code source**.
+
+## 4. Interface et rapports
+
+La TUI Textual regroupe Overview, Security, Hardening, Functions, Sections/deps, Symbols/PLT-GOT, Disassembly, ROP gadgets et, lorsqu’un deuxième ELF est fourni, Compare ELF. Elle propose un filtrage interactif ainsi que des exports JSON, TXT et HTML. L’export HTML échappe les champs issus du binaire pour produire une page statique consultable hors ligne.
+
+## 5. Reproduction et contrôle
+
+Les commandes détaillées figurent dans `README.md` : installation dans un environnement virtuel, compilation des variantes `samples/weak` et `samples/hardened`, lancement avec `--compare`, exports et tests.
+
+Validation recommandée :
+
+```sh
+python -m pytest -v
+python -m compileall -q main.py pwnscout tests
+readelf -W -h -l -S -d samples/weak
+readelf -W -h -l -S -d samples/hardened
+python main.py samples/weak --compare samples/hardened --no-tui
+```
+
+Les vérifications automatisées effectuées dans l’environnement de génération ne couvrent pas toutes les interactions Textual ni tous les formats ELF. Les tests d’intégration qui exigent des dépendances absentes peuvent être ignorés ; leur exécution complète sur le poste cible reste nécessaire.
+
+## 6. Limites et précautions
+
+- Analyse statique uniquement, aucune observation du comportement à l’exécution.
+- Détection de protections principalement fondée sur les en-têtes, tags et symboles : résultats parfois indéterminés.
+- Pas de décompilation, d’analyse de flot de données ni de preuve automatique de vulnérabilité.
+- Navigation par fonction limitée par la disponibilité des symboles et la prise en charge de Capstone.
+- Résultats à recouper avec `readelf`, `objdump`, `checksec` et une analyse manuelle.
+- Le programme C livré en exemple est volontairement vulnérable et doit rester un échantillon de laboratoire.
+
+## 7. Traçabilité
+
+L’utilisation de l’IA et les contrôles réalisés sont documentés dans `IA.md`. Les instantanés V1, V2 et V3 ont été importés dans Git le 16 novembre 2026 et leur provenance est décrite dans `VERSION_HISTORY.md`. Les dates d’import ne doivent pas être interprétées comme un historique hebdomadaire antérieur.

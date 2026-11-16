@@ -1,257 +1,136 @@
-# PwnScout V3
+# PwnScout
 
-PwnScout is an interactive, static reconnaissance tool for Linux ELF binaries. It presents security metadata, imported symbols, relocation entries, heuristic risky-import findings, an entry-point disassembly preview, and optional ROP gadget results.
+**Outil Python d’inspection statique de binaires ELF sous Linux.**  
+Interface TUI avec Textual, exports JSON/TXT/HTML et comparaison de deux exécutables.
 
-> **Safety and scope:** PwnScout does not execute the target binary. The included `samples/vulnerable.c` is intentionally unsafe and exists only as a local training fixture. Do not deploy it or expose it to a network. Findings are heuristics, not proof of an exploitable vulnerability.
+> PwnScout ne lance pas les fichiers analysés. Les résultats sont descriptifs et heuristiques : ils ne constituent ni une preuve de vulnérabilité ni un audit de sécurité complet.
 
-## Features
+## Fonctionnalités
 
-- Textual terminal UI with Overview, Symbols/PLT-GOT, Disassembly, and ROP tabs.
-- ELF class, architecture, endianness, type, entry point, and file path.
-- Best-effort NX, PIE, RELRO, stack-canary, and FORTIFY checks.
-- Imports, dynamic exports, and relocation records (including GOT/PLT-related relocations when present).
-- Heuristic identification of selected risky imported functions.
-- Capstone entry-point disassembly preview for x86, x86-64, ARM, and AArch64.
-- Optional ROPgadget integration, with a graceful fallback if it is absent.
-- JSON and TXT report export.
-- Pytest unit tests.
+- **Overview / Security** : métadonnées ELF, SHA-256, NX, PIE, RELRO, stack canary, FORTIFY, imports sensibles, observations sur les segments RWX et chemins de chargement.
+- **Functions / Disassembly** : fonctions identifiées à partir des symboles et désassemblage limité via Capstone ; aperçu du point d’entrée.
+- **Sections / deps** : sections, segments, permissions, dépendances dynamiques, RPATH et RUNPATH.
+- **Symbols / PLT-GOT** : imports, exports et relocations.
+- **ROP gadgets** : consultation facultative via l’outil externe ROPgadget.
+- **Hardening** : explications pédagogiques des protections et suggestions GCC/linker conditionnelles.
+- **Compare ELF** : différences de protections, imports et dépendances entre deux ELF.
+- **Exports** : rapports JSON, texte et HTML statique. Recherche dans les tableaux de la TUI.
 
-## Requirements
+## Pré-requis
 
-- Linux (Kali, Ubuntu, Debian, Arch or similar)
-- Python 3.10+
-- `gcc` or `clang` only if you want to compile the sample
-- Optional: `ROPgadget`
+- Linux, Python 3.10 ou plus récent, accès à un terminal compatible avec Textual.
+- GCC et `binutils` pour compiler l’exemple et vérifier manuellement les résultats.
+- ROPgadget facultatif (`requirements-optional.txt`).
 
 ## Installation
 
-### Debian / Ubuntu / Kali
+Dans le répertoire du projet :
 
-Some distributions mark their system Python as externally managed. Use a virtual environment:
-
-```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip build-essential
-cd PwnScout
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python -m pip install -r requirements-optional.txt
-```
-
-### Arch Linux
-
-```bash
-sudo pacman -Syu --needed python python-pip python-virtualenv base-devel
-cd PwnScout
+```sh
 python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
+python -m pip --version  # facultatif : vérifie le Python actif
+```
+
+Avec **Fish** (CachyOS / Arch) :
+
+```fish
+source .venv/bin/activate.fish
 python -m pip install -r requirements.txt
-python -m pip install -r requirements-optional.txt
 ```
 
-If ROPgadget is unavailable from pip, install it through your distribution package manager or omit the optional dependency. The rest of PwnScout still works.
+Avec **Bash / Zsh** :
 
-## Build the local demonstration binary
-
-From the project root:
-
-```bash
-gcc -g -O0 -fno-stack-protector -no-pie \
-  -Wno-implicit-function-declaration \
-  -o samples/vulnerable samples/vulnerable.c
+```sh
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-On some modern compilers, `gets` is hidden from headers. To make the demo compile consistently, use this alternative:
+Sur CachyOS/Arch, si les outils système manquent : `sudo pacman -S --needed python python-pip gcc binutils`. Pour Debian/Kali/Ubuntu : `sudo apt install python3 python3-venv python3-pip gcc binutils`.
 
-```bash
-gcc -g -O0 -fno-stack-protector -no-pie \
-  -include stdio.h -o samples/vulnerable samples/vulnerable.c
-```
+## Démonstration reproductible
 
-The compiler may warn about `gets`; that warning is expected for this deliberately vulnerable sample.
+L’échantillon `samples/vulnerable.c` utilise volontairement une API dangereuse. **Ne pas exécuter le binaire compilé** : il sert exclusivement à l’inspection statique.
 
-## Run
+Depuis la racine du dépôt :
 
-```bash
-python main.py ./samples/vulnerable
-```
-
-Or use the concise non-interactive mode:
-
-```bash
-python main.py ./samples/vulnerable --no-tui
-```
-
-Export reports:
-
-```bash
-python main.py ./samples/vulnerable --json reports/vulnerable.json --txt reports/vulnerable.txt
-```
-
-The output directory must exist before export:
-
-```bash
-mkdir -p reports
-```
-
-## Keyboard controls
-
-- `Tab` / `Shift+Tab`: move between controls and tabs
-- Arrow keys: navigate table rows and tabs
-- `q`: quit
-- `r`: explain that the current report is a snapshot; relaunch to analyze a changed file
-
-## Tests
-
-```bash
-python -m pytest -q
-```
-
-## Project layout
-
-```text
-PwnScout/
-├── main.py
-├── requirements.txt
-├── requirements-optional.txt
-├── pwnscout/
-│   ├── analyzer.py
-│   ├── checksec.py
-│   ├── disassembler.py
-│   ├── gadgets.py
-│   ├── interface.py
-│   ├── reporter.py
-│   ├── symbols.py
-│   └── vulnerabilities.py
-├── samples/
-│   └── vulnerable.c
-└── tests/
-    ├── test_reporter.py
-    └── test_scanner.py
-```
-
-## Methodology and limitations
-
-1. PwnScout verifies the ELF magic and parses the file with `pyelftools`.
-2. Protection checks are inferred from program headers, dynamic tags, and imported symbols.
-3. The risky-function scanner checks imported symbol names only. It does not prove that a call is reachable, attacker-controlled, or exploitable.
-4. Relocation output is a raw relocation inventory. Exact PLT/GOT labeling depends on the binary's ABI, linker, and available sections.
-5. Disassembly begins at the ELF entry point and is limited to a short preview. It is not a complete recursive disassembler.
-6. Gadget discovery delegates to the external `ROPgadget` executable and is optional.
-
-For a professional audit, validate results with independent tools such as `readelf`, `objdump`, `checksec`, and a debugger in an isolated lab.
-
-## Suggested demo flow (3–5 minutes)
-
-1. Show the project tree and explain that the tool performs static analysis only.
-2. Run `python main.py ./samples/vulnerable`.
-3. In Overview, point out architecture and security protections.
-4. Show the `gets` finding and explain why the warning is heuristic.
-5. Open Symbols/PLT-GOT and identify imported functions and relocation entries.
-6. Open Disassembly and explain the entry-point preview.
-7. Open ROP gadgets and explain the optional ROPgadget integration.
-8. Export JSON/TXT and run the test suite.
-
-## License
-
-Educational project. Add a license of your choice before public redistribution.
-
-## V2 additions (November 2026)
-
-- Dark violet compact Textual dashboard with a global case-insensitive filter. Press `/` to focus search; **Tab** or click to switch tabs.
-- Symbol-based function explorer: select a function row and press **Enter** (or click). Preview is limited to 180 instructions / 4 KiB. Stripped binaries might expose no named functions. ARM Thumb and some ABI-specific instruction modes are not inferred.
-- ELF sections (address/size/flags), program segments (R/W/X), DT_NEEDED libraries, RPATH and RUNPATH.
-- Security observations: NX/PIE/RELRO, canary heuristic, embedded library paths and writable+executable PT_LOAD segments. Findings are **heuristic indicators**, not proof of exploitation.
-- SHA-256 and file size in metadata.
-- Escaped offline HTML report using `--html`; HTML includes observations, imports, dependencies, sections, segments and known function symbols.
-- All original tabs and JSON/TXT export are retained. In the TUI press `j` for JSON, `t` for TXT, `h` for HTML; reports are saved under `reports/`.
-
-### V2 commands
-
-```bash
-python main.py samples/vulnerable --no-tui
-python main.py samples/vulnerable --html reports/vulnerable.html --json reports/vulnerable.json --txt reports/vulnerable.txt
-python -m pytest -v
-```
-
-In **Fish Shell**, activate with `source .venv/bin/activate.fish` instead of `activate`.
-
-To inspect useful named functions, compile with debugging symbols (`gcc -g -O0 ...`). Stripped binaries can have no `.symtab` and thus significantly fewer functions.
-
-### Validation limitations
-
-Check results against `readelf -W -h -S -l -d samples/vulnerable`, `nm -an samples/vulnerable`, and `objdump -d samples/vulnerable`. The V2 code is intended for local testing, including TUI interaction and imports/exports on the user's distribution.
-
-## V3 — ELF comparison and hardening guide (November 2026)
-
-V3 adds a **Compare ELF** tab when a second ELF is supplied with `--compare`, and an always-present **Hardening** tab. The V2 tabs (Overview, Security, Functions, Sections/dependencies, Symbols, Entry disassembly and ROP gadgets), global search (`/`), and JSON/TXT/HTML exports (`j`, `t`, `h`) remain available.
-
-### Usage
-
-From the project root with your virtual environment activated:
-
-```bash
-python main.py samples/vulnerable --compare /path/to/second.elf
-python main.py samples/vulnerable --compare /path/to/second.elf --no-tui
-python main.py samples/vulnerable --compare /path/to/second.elf \
-    --json reports/compare.json --txt reports/compare.txt --html reports/compare.html --no-tui
-```
-
-The **first path is the left side** and the `--compare` path is the **right side**. Comparison covers NX, PIE, RELRO, canary, FORTIFY, imported symbols, flagged imports and DT_NEEDED dependencies. It lists differences in a stable order and is also included in exported reports. It does not execute either binary.
-
-In **Hardening**, select a row with Enter/click to view a mitigation explanation, limits, a manual verification command, and sample compiler/linker flags. A missing `__stack_chk_fail` or `_chk` symbol is an *indicator*, not proof that a protection was globally disabled. The flags are educational suggestions; they are not a secure build recipe or a guarantee that a vulnerability is fixed.
-
-### Reproducible before/after example
-
-For Linux/GCC, compile the same intentionally unsafe sample in two ways (do not execute the sample):
-
-```bash
+```sh
 gcc -g -O0 -fno-stack-protector -no-pie -Wl,-z,norelro \
   -Wno-implicit-function-declaration -o samples/weak samples/vulnerable.c
 
 gcc -g -O0 -fstack-protector-strong -fPIE -pie -Wl,-z,relro,-z,now \
   -Wno-implicit-function-declaration -o samples/hardened samples/vulnerable.c
-
-python main.py samples/weak --compare samples/hardened
 ```
 
-This demonstrates typical PIE and RELRO differences on Linux/GCC; outcomes may vary with distro defaults, linker flags and compiler versions. Hardening does **not** repair the unsafe `gets` use.
-
-### CachyOS / Fish shell quick test
-
-```fish
-python -m venv .venv
-source .venv/bin/activate.fish
-python -m pip install -r requirements.txt
-python -m pytest -v
-python main.py samples/weak --compare samples/hardened
-```
-
-### Limitations and test policy
-
-- Protection inspection is best-effort: PIE and FORTIFY in particular can require interpretation beyond ELF symbols/headers, and stripped/static binaries can hide symbols. Compare individual evidence with `readelf`, `objdump` and `checksec`.
-- Import differences are names, not a control-flow or exploitability analysis. Two binaries may differ due to build configuration or linkers.
-- Function exploration remains limited to symbol-derived function names, supported architectures and bounded disassembly.
-- `--compare` builds two analysis snapshots; for very large binaries or with external ROPgadget installed, it may take longer.
-- The TUI must be validated interactively on the target platform. A test suite includes pure-unit tests and optional GCC/ELF integration tests; the latter skip when dependencies are unavailable.
-
-
-## V3 — comparison and hardening guide
-
-Use `--compare` to inspect differences between **two** ELF inputs. Results describe the
-protections and imports observed, not the exploitability of either binary.
-The TUI also includes **Hardening** and **Compare ELF** views.
+Les avertissements GCC concernant `gets` sont attendus sur ce programme de démonstration. Selon le compilateur/libc, la compilation peut nécessiter une adaptation du code d’exemple.
 
 ```sh
+python main.py samples/weak
 python main.py samples/weak --compare samples/hardened
-python main.py samples/weak --compare samples/hardened --no-tui --html reports/comparison.html
+python main.py samples/weak --compare samples/hardened --no-tui
 ```
 
-V3 adds explanations and conditional GCC/linker flag suggestions. For the full
-technical stage map and honest Git provenance, read `DEVELOPMENT_STAGES.md` and
-`VERSION_HISTORY.md`. All listed integration commands must be checked on the
-installation machine; the bundled test suite may skip ELF integration tests if
-required third-party modules are absent.
+Exports :
+
+```sh
+mkdir -p reports
+python main.py samples/weak --compare samples/hardened --no-tui \
+  --json reports/comparison.json \
+  --txt reports/comparison.txt \
+  --html reports/comparison.html
+```
+
+Consulter toutes les options avec `python main.py --help`.
+
+## Navigation dans la TUI
+
+| Touche | Action |
+|---|---|
+| `/` | Accéder au filtre de recherche |
+| `Tab` / flèches | Naviguer parmi onglets et tableaux |
+| `Entrée` | Afficher une fonction ou l’explication d’une protection sélectionnée |
+| `j` / `t` / `h` | Exporter en JSON / TXT / HTML |
+| `q` | Quitter |
+
+Les raccourcis d’export produisent des fichiers dans `reports/`.
+
+## Validation
+
+```sh
+python -m pytest -v
+python -m compileall -q main.py pwnscout tests
+readelf -W -h -l -S -d samples/weak
+readelf -W -h -l -S -d samples/hardened
+```
+
+Comparer notamment PIE, RELRO et les symboles disponibles avec `readelf` ou `checksec`. Certains tests d’intégration sont ignorés si le compilateur ou les dépendances nécessaires sont absents. Le comportement interactif de la TUI est à contrôler sur la machine de démonstration.
+
+## Organisation
+
+```text
+PwnScout/
+├── main.py                  # CLI et orchestration
+├── pwnscout/
+│   ├── analyzer.py          # analyse principale
+│   ├── checksec.py          # protections ELF
+│   ├── comparison.py        # comparaison de rapports
+│   ├── disassembler.py      # aperçu Capstone
+│   ├── elfdetails.py        # sections, segments, dépendances
+│   ├── functions.py         # exploration des fonctions
+│   ├── gadgets.py           # intégration ROPgadget
+│   ├── hardening.py         # guide de durcissement
+│   ├── interface.py         # TUI Textual
+│   ├── reporter.py          # sorties JSON, TXT et HTML
+│   ├── symbols.py           # symboles et relocations
+│   └── vulnerabilities.py   # heuristiques d’imports
+├── samples/vulnerable.c
+├── tests/
+├── RAPPORT_TECHNIQUE.md
+├── IA.md
+└── VERSION_HISTORY.md
+```
+
+## Limites connues
+
+La présence d’un import sensible ne démontre pas qu’il existe un chemin d’exécution exploitable. L’identification de fonctions dépend des symboles présents ; un binaire *stripped* peut en fournir très peu. L’inférence de Canary et FORTIFY par les symboles n’est pas exhaustive. Le désassemblage et la collecte de gadgets ne remplacent pas une analyse de flot de contrôle. Les drapeaux de compilation suggérés ne corrigent pas une fonction dangereuse du code source.
+
+Le fonctionnement détaillé et les conditions de validation sont décrits dans [RAPPORT_TECHNIQUE.md](RAPPORT_TECHNIQUE.md). L’utilisation de l’IA est consignée dans [IA.md](IA.md). La provenance des instantanés V1 à V3 est décrite dans [VERSION_HISTORY.md](VERSION_HISTORY.md).
