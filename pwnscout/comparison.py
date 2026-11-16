@@ -20,7 +20,15 @@ def compare_reports(left, right):
     right_risky = {x['function'] for x in right['vulnerabilities']}
     left_deps = set(left.get('details', {}).get('dependencies', []))
     right_deps = set(right.get('details', {}).get('dependencies', []))
+    warnings = []
+    if a.get('architecture') != b.get('architecture'):
+        warnings.append('Different architectures: mitigation indicators may not be directly comparable.')
+    if a.get('type') != b.get('type'):
+        warnings.append('Different ELF types: interpret PIE and relocation differences with care.')
+    if a.get('sha256') and a.get('sha256') == b.get('sha256'):
+        warnings.append('Identical SHA-256 digests: both inputs have the same file content.')
     return {
+        'warnings': warnings,
         'left': {'name': a['name'], 'path': a['file'], 'sha256': a.get('sha256', ''),
                  'architecture': a['architecture'], 'type': a['type'], 'size_bytes': a.get('size_bytes')},
         'right': {'name': b['name'], 'path': b['file'], 'sha256': b.get('sha256', ''),

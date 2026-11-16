@@ -68,3 +68,20 @@ def test_compare_does_not_mutate_source_reports():
     right = report('b', 'Enabled', [], [])
     compare_reports(left, right)
     assert 'comparison' not in left and 'comparison' not in right
+
+
+def test_comparison_warns_about_incompatible_elf_metadata():
+    left = report('a', 'Disabled', [], [])
+    right = report('b', 'Enabled', [], [])
+    right['metadata']['architecture'] = 'AArch64'
+    right['metadata']['type'] = 'ET_DYN'
+    warnings = compare_reports(left, right)['warnings']
+    assert any('architectures' in warning for warning in warnings)
+    assert any('ELF types' in warning for warning in warnings)
+    assert any('SHA-256' in warning for warning in warnings)
+
+def test_comparison_equal_metadata_has_no_warnings_when_hashes_differ():
+    left = report('a', 'Disabled', [], [])
+    right = report('b', 'Enabled', [], [])
+    right['metadata']['sha256'] = 'b' * 64
+    assert compare_reports(left, right)['warnings'] == []
