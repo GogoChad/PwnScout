@@ -134,3 +134,19 @@ PwnScout/
 La présence d’un import sensible ne démontre pas qu’il existe un chemin d’exécution exploitable. L’identification de fonctions dépend des symboles présents ; un binaire *stripped* peut en fournir très peu. L’inférence de Canary et FORTIFY par les symboles n’est pas exhaustive. Le désassemblage et la collecte de gadgets ne remplacent pas une analyse de flot de contrôle. Les drapeaux de compilation suggérés ne corrigent pas une fonction dangereuse du code source.
 
 Le fonctionnement détaillé et les conditions de validation sont décrits dans [RAPPORT_TECHNIQUE.md](RAPPORT_TECHNIQUE.md). L’utilisation de l’IA est consignée dans [IA.md](IA.md). La provenance des instantanés V1 à V3 est décrite dans [VERSION_HISTORY.md](VERSION_HISTORY.md).
+
+## Hex Viewer and section entropy (V3.1)
+
+The **Hex Viewer** tab displays file offsets, hexadecimal bytes and printable ASCII.
+Enter a byte offset such as `0x40` or `64` and press Enter to load up to 16 rows
+(256 bytes) without executing the inspected file. Offsets are **file positions**,
+not virtual addresses; input is bounded to prevent unbounded reads.
+
+The **Entropy** tab shows Shannon entropy for each ELF section in bits per byte
+(0 to 8), the number of bytes sampled and whether the measurement is complete.
+At most 1 MiB is sampled from the start of each file-backed section; sections
+such as `.bss` with no bytes in the file are excluded from entropy calculation.
+High entropy alone cannot establish encryption, packing or malicious intent.
+Section entropy is also included in JSON, TXT and HTML exports.
+
+Run the regression tests with `python -m pytest -v`.

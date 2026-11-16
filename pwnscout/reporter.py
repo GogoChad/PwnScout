@@ -39,6 +39,11 @@ def export_txt(report, destination):
             lines.extend((f"{x['name']} [{x['status']}]", f"  Purpose: {x['what']}",
                           f"  Limits: {x['limits']}", f"  Recommendation: {x['recommendation']}",
                           f"  Compiler/linker options: {x['flags']}", f"  Verify: {x['verify']}", ''))
+    if 'entropy' in report:
+        lines += ['', 'SECTION ENTROPY (bits/byte)', '-' * 32]
+        lines.extend(f"{x['name']}: {x['entropy'] if x['entropy'] is not None else 'n/a'} "
+                     f"({x['sampled_bytes']}/{x['section_bytes']} bytes; {x['status']})"
+                     for x in report['entropy'])
     if 'comparison' in report:
         c = report['comparison']
         lines += ['', 'ELF COMPARISON', '-' * 32, f"Left: {c['left']['path']}",
@@ -67,6 +72,10 @@ def export_html(report, destination):
     section('Sections', table(report.get('details', {}).get('sections', []), [('name', 'Name'), ('type', 'Type'), ('address', 'Address'), ('size', 'Size'), ('flags', 'Flags')]))
     section('Segments', table(report.get('details', {}).get('segments', []), [('type', 'Type'), ('vaddr', 'Virtual address'), ('permissions', 'Permissions')]))
     section('Functions (symbol-derived)', table(report.get('functions', []), [('name', 'Name'), ('address', 'Address'), ('size', 'Size')]))
+    entropy_rows = [dict(e, entropy='n/a' if e['entropy'] is None else e['entropy']) for e in report.get('entropy', [])]
+    section('Section entropy (bits per byte)', table(entropy_rows,
+            [('name', 'Section'), ('entropy', 'Entropy'), ('sampled_bytes', 'Sampled bytes'),
+             ('section_bytes', 'Section bytes'), ('status', 'Sampling status')]))
     if report.get('protection_guide'):
         section('Mitigation guide and GCC suggestions', table(report['protection_guide'],
                 [('name', 'Protection'), ('status', 'Status'), ('what', 'Purpose'),
